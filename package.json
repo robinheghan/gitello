@@ -1,0 +1,23 @@
+{
+  "name": "gitello",
+  "version": "0.1.0",
+  "description": "A text-driven trello clone with git storage",
+  "type": "module",
+  "bin": {
+    "gitello": "bin/gitello.js"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "packageManager": "pnpm@10.34.6",
+  "scripts": {
+    "ci": "prettier --check . && node --test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --test"
+  },
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}
