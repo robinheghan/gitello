@@ -4,6 +4,7 @@
 
 - Every change to this repository must happen through a pull request. Never commit or push directly to `main`.
 - Each PR description must include the prompt (the user request) that triggered the change, so the PR history shows why each change was made.
+- When a new prompt causes changes to an existing PR, add that prompt as a comment on the PR.
 
 ## Toolchain and package management
 
