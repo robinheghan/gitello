@@ -1,3 +1,4 @@
 #!/usr/bin/env node
+import { main } from "../src/cli.js";
 
-console.log("good vibes");
+process.exitCode = main(process.argv.slice(2));
