@@ -11,7 +11,7 @@
   },
   "packageManager": "pnpm@10.34.6",
   "scripts": {
-    "ci": "prettier --check . && node --test",
+    "check": "prettier --check . && node --test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --test"
