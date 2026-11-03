@@ -1,0 +1,38 @@
+name: Feature request intake
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  intake:
+    if: >-
+      startsWith(github.event.issue.title, 'Feature request:') ||
+      contains(github.event.issue.labels.*.name, 'feature-request')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label and acknowledge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue.number;
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['feature-request']
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                'Thanks for the feature request!',
+                '',
+                'This issue is labeled `feature-request`. A Mistral agent will implement it in a PR that links back to this issue.',
+                'Every PR runs the automated review in `.github/workflows/pr-review.yml`, and an agent reviews the code before merge. See `CONTRIBUTING.md` and `AGENTS.md`.'
+              ].join('\n')
+            });

@@ -1,0 +1,70 @@
+name: PR review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check linked issue
+        id: links
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const linked = /(closes|fixes|resolves)\s+#\d+/i.test(body);
+            core.setOutput('linked', String(linked));
+
+      - name: Detect Rust project
+        id: detect
+        run: echo "cargo=$([ -f Cargo.toml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        if: steps.detect.outputs.cargo == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Project checks
+        id: checks
+        if: steps.detect.outputs.cargo == 'true'
+        continue-on-error: true
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: Submit automated review
+        if: always()
+        env:
+          LINKED: ${{ steps.links.outputs.linked }}
+          CHECKS_OUTCOME: ${{ steps.checks.outcome }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const linked = process.env.LINKED === 'true';
+            const checksOk = ['success', 'skipped'].includes(process.env.CHECKS_OUTCOME);
+            const lines = [
+              '## Automated review',
+              '',
+              `- Linked issue in PR body: ${linked ? 'yes' : 'NO - add "Closes #<number>" to the PR description'}`,
+              `- Build / lint / tests: ${checksOk ? 'passed (or skipped: no Rust code yet)' : 'FAILED - see the job log'}`,
+              '',
+              'An agent code review happens on top of this before merge.'
+            ];
+            const event = (linked && checksOk) ? 'COMMENT' : 'REQUEST_CHANGES';
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: event,
+              body: lines.join('\n')
+            });
