@@ -1,16 +1,16 @@
 # Tutorial
 
-gitello stores all of its data in a git repository. By default it uses `~/.gitello`; set the `GITELLO_PATH` environment variable to use a different location:
+By default gitello keeps its data in `~/.gitello`; set the `GITELLO_PATH` environment variable to use a different location:
 
 ```sh
 export GITELLO_PATH=~/my-gitello
 ```
 
-The first time you run any gitello command, the repository is created if it does not exist yet. The repository starts out empty.
+The first time you run any gitello command, the data store is created if it does not exist yet. It starts out empty.
 
 ## Lists
 
-Each folder in the repository is a list.
+gitello organizes cards into lists.
 
 ```sh
 $ gitello lists
@@ -22,11 +22,9 @@ $ gitello lists remove todo
 Removed list "todo"
 ```
 
-Creating a list adds a `.gitkeep` file to the folder so that the empty folder can be stored in git.
-
 ## Cards
 
-Each `.json` file inside a list folder is a card. A card contains a `title`, a `description`, a `comments` array, and `createdAt`/`updatedAt` timestamps. The file name is a sanitized version of the title.
+A card has a `title`, a `description`, a `comments` array, and `createdAt`/`updatedAt` timestamps.
 
 ```sh
 $ gitello cards todo create "Fix the login bug"
@@ -61,7 +59,7 @@ When the output is not a terminal (for example when piping), running `gitello` w
 
 ## Git
 
-Every list and card creation or removal is committed automatically. To run git commands inside the gitello repository — for example to sync it with a remote or to fix a merge conflict — use the `git` command:
+Everything is stored in a git repository, and every list and card creation or removal is committed automatically. To run git commands against that repository — for example to sync it with a remote or to fix a merge conflict — use the `git` command:
 
 ```sh
 $ gitello git remote add origin git@example.com:gitello.git
