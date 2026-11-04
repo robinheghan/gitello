@@ -47,6 +47,18 @@ Removed card "Fix the login bug" from list "todo"
 - `gitello cards <list> create <title>` creates a card in the given list. Multi-word titles must be quoted: `gitello cards todo create "Fix the login bug"`.
 - `gitello cards <list> remove <title>` removes the card(s) with the given title from the list.
 
+## The board (TUI)
+
+Running `gitello` with no arguments opens an interactive board when stdin and stdout are a terminal:
+
+```sh
+$ gitello
+```
+
+Each list is shown as a column containing its cards. Move between lists with `h`/`l` or the left/right arrow keys, and between the cards of the current list with `j`/`k` or the up/down arrow keys. The selected card is highlighted. Press `q`, `Esc`, or `Ctrl-C` to quit.
+
+When the output is not a terminal (for example when piping), running `gitello` without arguments prints the usage instead.
+
 ## Git
 
 Every list and card creation or removal is committed automatically. To run git commands inside the gitello repository — for example to sync it with a remote or to fix a merge conflict — use the `git` command:

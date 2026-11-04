@@ -1,7 +1,9 @@
 import * as commands from "./commands.js";
 import { CliError } from "./store.js";
+import { launch } from "./tui.js";
 
 const USAGE = `Usage:
+  gitello                 open the interactive board (TUI)
   gitello lists
   gitello lists create <name>
   gitello lists remove <name>
@@ -18,7 +20,11 @@ export function main(argv, io = {}) {
     stdout: io.stdout ?? process.stdout,
     stderr: io.stderr ?? process.stderr,
   };
+  const stdin = io.stdin ?? process.stdin;
   try {
+    if (argv.length === 0 && streams.stdout.isTTY && stdin.isTTY) {
+      return launch({ stdin, stdout: streams.stdout, stderr: streams.stderr });
+    }
     const [command, ...rest] = argv;
     switch (command) {
       case "lists":
