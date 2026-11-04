@@ -8,7 +8,7 @@
 
 ## Toolchain and package management
 
-- Node.js v24 is required. It is pinned in three places: `engines.node` in `package.json`, `.nvmrc`, and the CI workflow (`.github/workflows/ci.yml` uses `actions/setup-node` with `node-version: 24`).
+- Node.js v22 is required. It is pinned in three places: `engines.node` in `package.json`, `.nvmrc`, and the CI workflow (`.github/workflows/ci.yml` uses `actions/setup-node` with `node-version: 22`).
 - pnpm is the package manager, pinned via the `packageManager` field in `package.json` (corepack). Run `corepack enable` once, then `pnpm install` to set up a new environment.
 - Installing the package links the `gitello` binary (see `bin/gitello.js`) into `node_modules/.bin`; when installed globally it is added to `PATH`.
 - `pnpm run check` runs the full check: Prettier formatting verification (`prettier --check .`) followed by the test suite using Node's built-in test runner (`node --test`). The script is named `check` and must be invoked as `pnpm run check` (pnpm does not run package scripts via the bare name). The CI GitHub Action (`.github/workflows/ci.yml`) runs `pnpm run check` on every PR creation and update.
