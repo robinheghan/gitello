@@ -8,6 +8,7 @@ import {
   applyKey,
   buildModel,
   initialState,
+  performMove,
   renderColumn,
   truncate,
 } from "../src/tui.js";
@@ -120,6 +121,72 @@ test("q, escape and ctrl-c quit; unrelated keys are ignored", () => {
   const ignored = applyKey(model, state, "x");
   assert.equal(ignored.quit, false);
   assert.deepEqual(ignored.state, state);
+});
+
+test("shift+h/l and shift+arrows move the selected card to the adjacent list", () => {
+  let result = applyKey(model, { list: 0, card: 0 }, "S-l");
+  assert.deepEqual(result.state, { list: 1, card: 0 });
+  assert.equal(result.quit, false);
+  assert.deepEqual(result.move, { from: "todo", to: "empty", card: 0 });
+  result = applyKey(model, { list: 0, card: 1 }, "S-right");
+  assert.deepEqual(result.state, { list: 1, card: 0 });
+  assert.deepEqual(result.move, { from: "todo", to: "empty", card: 1 });
+  result = applyKey(model, { list: 2, card: 0 }, "S-h");
+  assert.deepEqual(result.state, { list: 1, card: 0 });
+  assert.deepEqual(result.move, { from: "done", to: "empty", card: 0 });
+  result = applyKey(model, { list: 2, card: 0 }, "S-left");
+  assert.deepEqual(result.state, { list: 1, card: 0 });
+  assert.deepEqual(result.move, { from: "done", to: "empty", card: 0 });
+});
+
+test("shift+move at the edge or from an empty list does not move a card", () => {
+  let result = applyKey(model, { list: 0, card: 0 }, "S-left");
+  assert.deepEqual(result.state, { list: 0, card: 0 });
+  assert.equal(result.move, undefined);
+  result = applyKey(model, { list: 2, card: 0 }, "S-right");
+  assert.deepEqual(result.state, { list: 2, card: 0 });
+  assert.equal(result.move, undefined);
+  result = applyKey(model, { list: 1, card: 0 }, "S-l");
+  assert.deepEqual(result.state, { list: 2, card: 0 });
+  assert.equal(result.move, undefined);
+});
+
+test("shift+up/down cannot move a card within a list", () => {
+  const state = { list: 0, card: 0 };
+  for (const key of ["S-j", "S-k", "S-up", "S-down"]) {
+    const result = applyKey(model, state, key);
+    assert.deepEqual(result.state, state, key);
+    assert.equal(result.move, undefined, key);
+    assert.equal(result.quit, false, key);
+  }
+});
+
+test("performMove moves the card file, commits, and rebuilds the model", () => {
+  run(["lists", "create", "done"]);
+  run(["lists", "create", "todo"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  run(["cards", "todo", "create", "Write docs"]);
+  const built = buildModel(repo);
+  const result = applyKey(built, { list: 1, card: 0 }, "S-h");
+  assert.deepEqual(result.move, { from: "todo", to: "done", card: 0 });
+  const moved = performMove(repo, built, result.move);
+  assert.equal(moved.title, "Fix bug");
+  assert.ok(!fs.existsSync(path.join(repo, "todo", "fix-bug.json")));
+  assert.ok(fs.existsSync(path.join(repo, "done", "fix-bug.json")));
+  assert.deepEqual(
+    built.lists.map((list) => [
+      list.name,
+      list.cards.map((card) => card.title),
+    ]),
+    [
+      ["done", ["Fix bug"]],
+      ["todo", ["Write docs"]],
+    ],
+  );
+  const log = run(["git", "log", "--format=%s"]);
+  assert.ok(
+    log.out.includes('Move card "Fix bug" from list "todo" to list "done"'),
+  );
 });
 
 test("renderColumn highlights only the selected card of the active list", () => {

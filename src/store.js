@@ -51,9 +51,10 @@ export function ensureRepo() {
   return repo;
 }
 
-export function commit(repo, relativePath, message) {
-  git(repo, ["add", "--", relativePath]);
-  git(repo, ["commit", "-m", message, "--", relativePath]);
+export function commit(repo, relativePaths, message) {
+  const paths = Array.isArray(relativePaths) ? relativePaths : [relativePaths];
+  git(repo, ["add", "--", ...paths]);
+  git(repo, ["commit", "-m", message, "--", ...paths]);
 }
 
 export function listNames(repo) {

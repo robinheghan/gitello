@@ -1,12 +1,18 @@
 import blessed from "neo-blessed";
-import { byCreation, readCards } from "./cards.js";
-import { ensureRepo, listNames } from "./store.js";
+import { byCreation, moveCardFile, readCards } from "./cards.js";
+import { commit, ensureRepo, listNames } from "./store.js";
 
 const QUIT_KEYS = new Set(["q", "escape", "C-c"]);
 const NAV_KEYS = ["up", "down", "left", "right", "h", "j", "k", "l"];
+const MOVE_KEYS = {
+  "S-h": "h",
+  "S-l": "l",
+  "S-left": "left",
+  "S-right": "right",
+};
 
 const HELP =
-  "{grey-fg}h/l or ←/→: lists · j/k or ↑/↓: cards · q/esc: quit{/grey-fg}";
+  "{grey-fg}h/l or ←/→: lists · j/k or ↑/↓: cards · shift+h/l or shift+←/→: move card · q/esc: quit{/grey-fg}";
 const EMPTY_HELP =
   "{grey-fg}No lists yet — create one with `gitello lists create <name>` · q: quit{/grey-fg}";
 
@@ -27,9 +33,11 @@ export function applyKey(model, state, key) {
   if (QUIT_KEYS.has(key)) {
     return { state, quit: true };
   }
+  const moveKey = MOVE_KEYS[key];
+  const nav = moveKey ?? key;
   const listCount = model.lists.length;
   let { list, card } = state;
-  switch (key) {
+  switch (nav) {
     case "h":
     case "left":
       list = Math.max(0, list - 1);
@@ -54,7 +62,34 @@ export function applyKey(model, state, key) {
   }
   const cards = model.lists[list]?.cards ?? [];
   card = Math.min(card, Math.max(cards.length - 1, 0));
-  return { state: { list, card }, quit: false };
+  const next = { list, card };
+  if (moveKey && list !== state.list) {
+    const from = model.lists[state.list];
+    if (from && from.cards[state.card]) {
+      return {
+        state: next,
+        quit: false,
+        move: { from: from.name, to: model.lists[list].name, card: state.card },
+      };
+    }
+  }
+  return { state: next, quit: false };
+}
+
+export function performMove(repo, model, move) {
+  const from = model.lists.find((list) => list.name === move.from);
+  const card = from?.cards[move.card];
+  if (!card) {
+    return null;
+  }
+  moveCardFile(repo, move.from, move.to, card.file);
+  commit(
+    repo,
+    [move.from, move.to],
+    `Move card "${card.title}" from list "${move.from}" to list "${move.to}"`,
+  );
+  model.lists = buildModel(repo).lists;
+  return card;
 }
 
 export function truncate(text, max) {
@@ -177,6 +212,26 @@ export function launch(io = {}) {
         if (result.quit) {
           quit();
           return;
+        }
+        state = result.state;
+        render();
+      });
+    }
+    for (const key of Object.keys(MOVE_KEYS)) {
+      screen.key([key], () => {
+        const result = applyKey(model, state, key);
+        if (result.quit) {
+          quit();
+          return;
+        }
+        if (result.move) {
+          performMove(repo, model, result.move);
+          const column = model.lists[result.state.list];
+          const maxCard = Math.max((column?.cards.length ?? 0) - 1, 0);
+          result.state = {
+            list: result.state.list,
+            card: Math.min(result.state.card, maxCard),
+          };
         }
         state = result.state;
         render();
