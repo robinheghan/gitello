@@ -19,5 +19,8 @@
   "license": "BSD-3-Clause",
   "devDependencies": {
     "prettier": "^3.6.2"
+  },
+  "dependencies": {
+    "neo-blessed": "^0.2.0"
   }
 }
