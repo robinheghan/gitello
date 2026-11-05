@@ -189,6 +189,81 @@ test("cards remove deletes the card and commits", () => {
   assert.match(missing.err, /card not found/);
 });
 
+test("cards move moves the card to another list and commits", () => {
+  run(["lists", "create", "todo"]);
+  run(["lists", "create", "done"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  const result = run(["cards", "todo", "move", "Fix bug", "done"]);
+  assert.equal(result.code, 0);
+  assert.equal(
+    result.out,
+    'Moved card "Fix bug" from list "todo" to list "done"\n',
+  );
+  assert.ok(!fs.existsSync(path.join(repo, "todo", "fix-bug.json")));
+  const file = path.join(repo, "done", "fix-bug.json");
+  assert.ok(fs.existsSync(file));
+  const card = JSON.parse(fs.readFileSync(file, "utf8"));
+  assert.equal(card.title, "Fix bug");
+  assert.equal(run(["cards", "todo"]).out, "");
+  assert.equal(run(["cards", "done"]).out, "Fix bug\n");
+  assert.ok(
+    gitLogSubjects().includes(
+      'Move card "Fix bug" from list "todo" to list "done"',
+    ),
+  );
+});
+
+test("cards move moves every card with a duplicate title", () => {
+  run(["lists", "create", "todo"]);
+  run(["lists", "create", "done"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  const result = run(["cards", "todo", "move", "Fix bug", "done"]);
+  assert.equal(result.code, 0);
+  assert.equal(
+    result.out,
+    'Moved card "Fix bug" from list "todo" to list "done"\n'.repeat(2),
+  );
+  assert.equal(run(["cards", "todo"]).out, "");
+  assert.equal(run(["cards", "done"]).out, "Fix bug\nFix bug\n");
+  assert.ok(fs.existsSync(path.join(repo, "done", "fix-bug.json")));
+  assert.ok(fs.existsSync(path.join(repo, "done", "fix-bug-2.json")));
+});
+
+test("cards move picks a fresh filename when the target list has a collision", () => {
+  run(["lists", "create", "todo"]);
+  run(["lists", "create", "done"]);
+  run(["cards", "done", "create", "Fix bug"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  assert.equal(run(["cards", "todo", "move", "Fix bug", "done"]).code, 0);
+  assert.ok(fs.existsSync(path.join(repo, "done", "fix-bug.json")));
+  assert.ok(fs.existsSync(path.join(repo, "done", "fix-bug-2.json")));
+  assert.equal(run(["cards", "todo"]).out, "");
+  assert.equal(run(["cards", "done"]).out, "Fix bug\nFix bug\n");
+});
+
+test("cards move validates lists, card, and arguments", () => {
+  run(["lists", "create", "todo"]);
+  run(["lists", "create", "done"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  const fromMissing = run(["cards", "nope", "move", "Fix bug", "done"]);
+  assert.equal(fromMissing.code, 1);
+  assert.match(fromMissing.err, /list not found: nope/);
+  const toMissing = run(["cards", "todo", "move", "Fix bug", "nope"]);
+  assert.equal(toMissing.code, 1);
+  assert.match(toMissing.err, /list not found: nope/);
+  const cardMissing = run(["cards", "todo", "move", "Missing", "done"]);
+  assert.equal(cardMissing.code, 1);
+  assert.match(cardMissing.err, /card not found/);
+  const same = run(["cards", "todo", "move", "Fix bug", "todo"]);
+  assert.equal(same.code, 1);
+  assert.match(same.err, /same list/);
+  const args = run(["cards", "todo", "move", "Fix bug"]);
+  assert.equal(args.code, 1);
+  assert.match(args.err, /expects two arguments/);
+  assert.ok(fs.existsSync(path.join(repo, "todo", "fix-bug.json")));
+});
+
 test("git proxies git commands into the repo", () => {
   run(["lists", "create", "todo"]);
   const log = run(["git", "log", "--format=%s"]);

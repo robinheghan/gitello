@@ -6,6 +6,7 @@ import {
   byCreation,
   byRecency,
   createCard,
+  moveCardFile,
   readCards,
 } from "./cards.js";
 import {
@@ -103,6 +104,41 @@ export function removeCard(io, list, title) {
   commit(repo, list, `Remove card "${title}" from list "${list}"`);
   for (const match of matches) {
     io.stdout.write(`Removed card "${match.title}" from list "${list}"\n`);
+  }
+}
+
+export function moveCard(io, fromList, title, toList) {
+  validateListName(fromList);
+  validateListName(toList);
+  const repo = ensureRepo();
+  const names = listNames(repo);
+  if (!names.includes(fromList)) {
+    throw new CliError(`list not found: ${fromList}`);
+  }
+  if (!names.includes(toList)) {
+    throw new CliError(`list not found: ${toList}`);
+  }
+  if (fromList === toList) {
+    throw new CliError(`cannot move a card to the same list: ${fromList}`);
+  }
+  const matches = readCards(repo, fromList).filter(
+    (card) => card.title === title,
+  );
+  if (matches.length === 0) {
+    throw new CliError(`card not found in list "${fromList}": ${title}`);
+  }
+  for (const match of matches) {
+    moveCardFile(repo, fromList, toList, match.file);
+  }
+  commit(
+    repo,
+    [fromList, toList],
+    `Move card "${title}" from list "${fromList}" to list "${toList}"`,
+  );
+  for (const match of matches) {
+    io.stdout.write(
+      `Moved card "${match.title}" from list "${fromList}" to list "${toList}"\n`,
+    );
   }
 }
 

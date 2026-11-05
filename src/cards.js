@@ -56,18 +56,22 @@ export function byCreation(cards) {
   );
 }
 
-export function createCard(repo, list, title) {
-  if (!title) {
-    throw new CliError("card title must not be empty");
-  }
-  const dir = path.join(repo, list);
-  const base = slugify(title);
+function uniqueFileName(dir, base) {
   let file = `${base}.json`;
   let counter = 2;
   while (fs.existsSync(path.join(dir, file))) {
     file = `${base}-${counter}.json`;
     counter += 1;
   }
+  return file;
+}
+
+export function createCard(repo, list, title) {
+  if (!title) {
+    throw new CliError("card title must not be empty");
+  }
+  const dir = path.join(repo, list);
+  const file = uniqueFileName(dir, slugify(title));
   const now = new Date().toISOString();
   const card = {
     title,
@@ -78,4 +82,11 @@ export function createCard(repo, list, title) {
   };
   fs.writeFileSync(path.join(dir, file), JSON.stringify(card, null, 2) + "\n");
   return { card, file };
+}
+
+export function moveCardFile(repo, fromList, toList, file) {
+  const targetDir = path.join(repo, toList);
+  const target = uniqueFileName(targetDir, file.replace(/\.json$/, ""));
+  fs.renameSync(path.join(repo, fromList, file), path.join(targetDir, target));
+  return target;
 }
