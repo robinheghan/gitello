@@ -189,6 +189,16 @@ test("performMove moves the card file, commits, and rebuilds the model", () => {
   );
 });
 
+test("space toggles the card modal without changing the selection", () => {
+  const state = { list: 0, card: 1 };
+  const result = applyKey(model, state, "space");
+  assert.equal(result.quit, false);
+  assert.equal(result.toggleCard, true);
+  assert.deepEqual(result.state, state);
+  assert.equal(applyKey(model, state, "x").toggleCard, undefined);
+  assert.equal(applyKey(model, state, "j").toggleCard, undefined);
+});
+
 test("renderColumn highlights only the selected card of the active list", () => {
   const column = model.lists[0];
   const active = renderColumn(column, {

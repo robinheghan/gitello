@@ -1,5 +1,5 @@
 import blessed from "neo-blessed";
-import { byCreation, moveCardFile, readCards } from "./cards.js";
+import { byCreation, formatCard, moveCardFile, readCards } from "./cards.js";
 import { commit, ensureRepo, listNames } from "./store.js";
 
 const QUIT_KEYS = new Set(["q", "escape", "C-c"]);
@@ -12,7 +12,7 @@ const MOVE_KEYS = {
 };
 
 const HELP =
-  "{grey-fg}h/l or ←/→: lists · j/k or ↑/↓: cards · shift+h/l or shift+←/→: move card · q/esc: quit{/grey-fg}";
+  "{grey-fg}h/l or ←/→: lists · j/k or ↑/↓: cards · shift+h/l or shift+←/→: move card · space: view card · q/esc: quit{/grey-fg}";
 const EMPTY_HELP =
   "{grey-fg}No lists yet — create one with `gitello lists create <name>` · q: quit{/grey-fg}";
 
@@ -32,6 +32,9 @@ export function initialState() {
 export function applyKey(model, state, key) {
   if (QUIT_KEYS.has(key)) {
     return { state, quit: true };
+  }
+  if (key === "space") {
+    return { state, quit: false, toggleCard: true };
   }
   const moveKey = MOVE_KEYS[key];
   const nav = moveKey ?? key;
@@ -153,7 +156,39 @@ export function launch(io = {}) {
     }),
   );
 
+  const cardModal = blessed.box({
+    parent: screen,
+    top: "center",
+    left: "center",
+    width: "80%",
+    height: "80%",
+    border: { type: "line" },
+    tags: false,
+    scrollable: true,
+    alwaysScroll: true,
+    mouse: true,
+    hidden: true,
+    style: { border: { fg: "cyan" } },
+  });
+
   let state = initialState();
+  let modalOpen = false;
+
+  function toggleCardModal() {
+    if (modalOpen) {
+      modalOpen = false;
+      cardModal.hide();
+      return;
+    }
+    const card = model.lists[state.list]?.cards[state.card];
+    if (!card) {
+      return;
+    }
+    modalOpen = true;
+    cardModal.setLabel(` ${truncate(card.title, 60)} `);
+    cardModal.setContent(formatCard(card));
+    cardModal.show();
+  }
 
   function layout() {
     const width = screen.width || output.columns || 80;
@@ -206,8 +241,18 @@ export function launch(io = {}) {
       resolve(0);
     }
     screen.key([...QUIT_KEYS], quit);
+    screen.key(["space"], () => {
+      const result = applyKey(model, state, "space");
+      if (result.toggleCard) {
+        toggleCardModal();
+      }
+      render();
+    });
     for (const key of NAV_KEYS) {
       screen.key([key], () => {
+        if (modalOpen) {
+          return;
+        }
         const result = applyKey(model, state, key);
         if (result.quit) {
           quit();
@@ -219,6 +264,9 @@ export function launch(io = {}) {
     }
     for (const key of Object.keys(MOVE_KEYS)) {
       screen.key([key], () => {
+        if (modalOpen) {
+          return;
+        }
         const result = applyKey(model, state, key);
         if (result.quit) {
           quit();

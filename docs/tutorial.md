@@ -45,6 +45,13 @@ $ gitello cards todo move "Fix the login bug" done
 Moved card "Fix the login bug" from list "todo" to list "done"
 $ gitello cards done
 Fix the login bug
+$ gitello cards show "Fix the login bug"
+Fix the login bug
+
+
+created: 2026-11-04T14:30:00.000Z
+modified: 2026-11-04T14:30:00.000Z
+
 ```
 
 - `gitello cards` prints the titles of the ten most recently created/modified cards across all lists, most recent first.
@@ -53,6 +60,7 @@ Fix the login bug
 - `gitello cards <list> create <title>` creates a card in the given list. Multi-word titles must be quoted: `gitello cards todo create "Fix the login bug"`.
 - `gitello cards <list> remove <title>` removes the card(s) with the given title from the list.
 - `gitello cards <from_list> move <title> <to_list>` moves the card(s) with the given title from one list to another, e.g. `gitello cards todo move "Fix the login bug" done`. Cards cannot be moved to the same list they are in.
+- `gitello cards show <title>` prints the full content of every card with the given title across all lists, most recent first: the title, the description, the `created:`/`modified:` timestamps, an `other:` line with any remaining metadata if present, and then the comments, one per line.
 
 ## The board (TUI)
 
@@ -65,6 +73,8 @@ $ gitello
 Each list is shown as a column containing its cards. Move between lists with `h`/`l` or the left/right arrow keys, and between the cards of the current list with `j`/`k` or the up/down arrow keys. The selected card is highlighted. Press `q`, `Esc`, or `Ctrl-C` to quit.
 
 Hold `Shift` while pressing `h`/`l` or the left/right arrow keys to move the selected card to the adjacent list; the move is committed to git immediately. A card can only be moved between lists, not up or down within a list, so `Shift` with `j`/`k` or the up/down arrow keys does nothing.
+
+Press `space` to open the currently selected card in a modal showing its title, description, `created:`/`modified:` timestamps, any other metadata, and its comments. While the modal is open the other navigation keys are ignored; press `space` again to close it.
 
 When the output is not a terminal (for example when piping), running `gitello` without arguments prints the usage instead.
 

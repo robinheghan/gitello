@@ -6,6 +6,7 @@ import {
   byCreation,
   byRecency,
   createCard,
+  formatCard,
   moveCardFile,
   readCards,
 } from "./cards.js";
@@ -71,6 +72,17 @@ export function listCards(io, list) {
   for (const card of byCreation(readCards(repo, list))) {
     io.stdout.write(`${card.title}\n`);
   }
+}
+
+export function showCard(io, title) {
+  const repo = ensureRepo();
+  const matches = byRecency(allCards(repo, listNames(repo))).filter(
+    (card) => card.title === title,
+  );
+  if (matches.length === 0) {
+    throw new CliError(`card not found: ${title}`);
+  }
+  io.stdout.write(`${matches.map(formatCard).join("\n\n")}\n`);
 }
 
 export function createCardCommand(io, list, title) {
