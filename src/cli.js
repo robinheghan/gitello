@@ -13,6 +13,7 @@ const USAGE = `Usage:
   gitello cards <list> create <title>
   gitello cards <list> remove <title>
   gitello cards <from_list> move <title> <to_list>
+  gitello cards show <title>
   gitello git <args...>
 `;
 
@@ -50,6 +51,15 @@ export function main(argv, io = {}) {
         if (rest[0] === "--all" && rest.length === 1) {
           commands.cards(streams, { all: true });
           return 0;
+        }
+        if (rest[0] === "show" && rest.length === 2) {
+          commands.showCard(streams, rest[1]);
+          return 0;
+        }
+        if (rest[0] === "show") {
+          throw new CliError(
+            `"show" expects a single argument; quote multi-word values, e.g. "Title here"`,
+          );
         }
         if (rest[1] === "create" && rest.length === 3) {
           commands.createCardCommand(streams, rest[0], rest[2]);

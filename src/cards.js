@@ -35,6 +35,39 @@ export function allCards(repo, lists) {
   return lists.flatMap((list) => readCards(repo, list));
 }
 
+const CARD_FIELDS = new Set([
+  "title",
+  "description",
+  "comments",
+  "createdAt",
+  "updatedAt",
+  "list",
+  "file",
+]);
+
+export function formatCard(card) {
+  const lines = [
+    String(card.title ?? ""),
+    "",
+    String(card.description ?? ""),
+    "",
+    `created: ${card.createdAt ?? ""}`,
+    `modified: ${card.updatedAt ?? ""}`,
+  ];
+  const other = Object.fromEntries(
+    Object.entries(card).filter(([key]) => !CARD_FIELDS.has(key)),
+  );
+  if (Object.keys(other).length > 0) {
+    lines.push(`other: ${JSON.stringify(other)}`);
+  }
+  lines.push("");
+  const comments = Array.isArray(card.comments) ? card.comments : [];
+  for (const comment of comments) {
+    lines.push(typeof comment === "string" ? comment : JSON.stringify(comment));
+  }
+  return lines.join("\n");
+}
+
 export function byRecency(cards) {
   return [...cards].sort((a, b) => {
     const aTime = String(a.updatedAt ?? a.createdAt ?? "");

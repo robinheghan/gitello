@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { main } from "../src/cli.js";
+import { formatCard } from "../src/cards.js";
 
 let dir;
 let repo;
@@ -162,6 +163,97 @@ test("cards commands fail when the list does not exist", () => {
   assert.match(run(["cards", "nope"]).err, /list not found/);
   assert.match(run(["cards", "nope", "create", "X"]).err, /list not found/);
   assert.match(run(["cards", "nope", "remove", "X"]).err, /list not found/);
+});
+
+test("cards show prints title, description, timestamps, other metadata, and comments", () => {
+  run(["lists", "create", "todo"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  const file = path.join(repo, "todo", "fix-bug.json");
+  const card = JSON.parse(fs.readFileSync(file, "utf8"));
+  card.description = "It crashes on the login page";
+  card.comments = ["looked at it", { author: "me", text: "still broken" }];
+  card.priority = "high";
+  card.createdAt = "2026-01-01T10:00:00.000Z";
+  card.updatedAt = "2026-01-02T11:30:00.000Z";
+  fs.writeFileSync(file, JSON.stringify(card, null, 2) + "\n");
+  const result = run(["cards", "show", "Fix bug"]);
+  assert.equal(result.code, 0);
+  assert.equal(
+    result.out,
+    'Fix bug\n\nIt crashes on the login page\n\ncreated: 2026-01-01T10:00:00.000Z\nmodified: 2026-01-02T11:30:00.000Z\nother: {"priority":"high"}\n\nlooked at it\n{"author":"me","text":"still broken"}\n',
+  );
+});
+
+test("cards show omits the other line for a freshly created card", () => {
+  run(["lists", "create", "todo"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  const card = JSON.parse(
+    fs.readFileSync(path.join(repo, "todo", "fix-bug.json"), "utf8"),
+  );
+  const result = run(["cards", "show", "Fix bug"]);
+  assert.equal(result.code, 0);
+  assert.equal(
+    result.out,
+    `Fix bug\n\n\n\ncreated: ${card.createdAt}\nmodified: ${card.updatedAt}\n\n`,
+  );
+});
+
+test("cards show finds cards in any list and fails when the title is missing", () => {
+  run(["lists", "create", "todo"]);
+  run(["lists", "create", "done"]);
+  run(["cards", "done", "create", "Ship it"]);
+  const found = run(["cards", "show", "Ship it"]);
+  assert.equal(found.code, 0);
+  assert.match(found.out, /^Ship it\n/);
+  const missing = run(["cards", "show", "Nope"]);
+  assert.equal(missing.code, 1);
+  assert.match(missing.err, /card not found: Nope/);
+});
+
+test("cards show prints every duplicate title, most recent first", () => {
+  run(["lists", "create", "a"]);
+  run(["lists", "create", "b"]);
+  run(["cards", "a", "create", "Fix bug"]);
+  sleep(2);
+  run(["cards", "b", "create", "Fix bug"]);
+  const result = run(["cards", "show", "Fix bug"]);
+  assert.equal(result.code, 0);
+  assert.equal(result.out.match(/^Fix bug$/gm).length, 2);
+  const cardA = JSON.parse(
+    fs.readFileSync(path.join(repo, "a", "fix-bug.json"), "utf8"),
+  );
+  const cardB = JSON.parse(
+    fs.readFileSync(path.join(repo, "b", "fix-bug.json"), "utf8"),
+  );
+  assert.ok(
+    result.out.indexOf(cardB.createdAt) < result.out.indexOf(cardA.createdAt),
+  );
+});
+
+test("cards show requires a single quoted title", () => {
+  run(["lists", "create", "todo"]);
+  const result = run(["cards", "show", "Fix", "bug"]);
+  assert.equal(result.code, 1);
+  assert.match(result.err, /quote multi-word values/);
+  assert.equal(run(["cards", "show"]).code, 1);
+});
+
+test("formatCard renders all card fields and tolerates missing ones", () => {
+  const card = {
+    title: "T",
+    description: "D",
+    comments: ["c1", { n: 2 }],
+    createdAt: "c",
+    updatedAt: "u",
+    list: "todo",
+    file: "t.json",
+    extra: "e",
+  };
+  assert.equal(
+    formatCard(card),
+    'T\n\nD\n\ncreated: c\nmodified: u\nother: {"extra":"e"}\n\nc1\n{"n":2}',
+  );
+  assert.equal(formatCard({}), "\n\n\n\ncreated: \nmodified: \n");
 });
 
 test("duplicate card titles get unique filenames", () => {
