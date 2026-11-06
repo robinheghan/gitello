@@ -1,4 +1,4 @@
-import blessed from "neo-blessed";
+import blessed from "@blessed/neo-blessed";
 import { byCreation, formatCard, moveCardFile, readCards } from "./cards.js";
 import { commit, ensureRepo, listNames } from "./store.js";
 
@@ -127,6 +127,7 @@ export function launch(io = {}) {
     output,
     smartCSR: true,
     fullUnicode: true,
+    extended: false,
     title: "gitello",
   });
 
