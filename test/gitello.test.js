@@ -5,7 +5,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { main } from "../src/cli.js";
-import { formatCard } from "../src/cards.js";
+import {
+  formatCard,
+  formatComments,
+  formatMeta,
+  parseComments,
+  updateCard,
+} from "../src/cards.js";
 
 let dir;
 let repo;
@@ -254,6 +260,79 @@ test("formatCard renders all card fields and tolerates missing ones", () => {
     'T\n\nD\n\ncreated: c\nmodified: u\nother: {"extra":"e"}\n\nc1\n{"n":2}',
   );
   assert.equal(formatCard({}), "\n\n\n\ncreated: \nmodified: \n");
+});
+
+test("formatMeta joins created, modified, and other metadata", () => {
+  assert.equal(
+    formatMeta({ createdAt: "c", updatedAt: "u" }),
+    "created: c · modified: u",
+  );
+  assert.equal(
+    formatMeta({
+      createdAt: "c",
+      updatedAt: "u",
+      extra: 1,
+      list: "x",
+      file: "f",
+    }),
+    'created: c · modified: u · other: {"extra":1}',
+  );
+});
+
+test("formatComments and parseComments round-trip string and object comments", () => {
+  const comments = ["first", { n: 2 }, "third"];
+  const text = formatComments(comments);
+  assert.equal(text, 'first\n{"n":2}\nthird');
+  assert.deepEqual(parseComments(text), comments);
+  assert.equal(formatComments(undefined), "");
+  assert.deepEqual(parseComments(""), []);
+  assert.deepEqual(parseComments("a\n\n   \nb"), ["a", "b"]);
+  assert.deepEqual(parseComments('{"n":2}\nnot json {'), [
+    { n: 2 },
+    "not json {",
+  ]);
+});
+
+test("updateCard rewrites title, description, and comments and bumps updatedAt", () => {
+  run(["lists", "create", "todo"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  const file = path.join(repo, "todo", "fix-bug.json");
+  const before = JSON.parse(fs.readFileSync(file, "utf8"));
+  sleep(10);
+  const updated = updateCard(repo, "todo", "fix-bug.json", {
+    title: "Fix the bug",
+    description: "details",
+    comments: ["note"],
+  });
+  assert.equal(updated.title, "Fix the bug");
+  assert.equal(updated.description, "details");
+  assert.deepEqual(updated.comments, ["note"]);
+  assert.equal(updated.createdAt, before.createdAt);
+  assert.ok(updated.updatedAt > before.updatedAt);
+  const stored = JSON.parse(fs.readFileSync(file, "utf8"));
+  assert.deepEqual(stored, updated);
+  assert.ok(!("list" in stored));
+  assert.ok(!("file" in stored));
+  const partial = updateCard(repo, "todo", "fix-bug.json", {
+    description: "more",
+  });
+  assert.equal(partial.title, "Fix the bug");
+  assert.equal(partial.description, "more");
+  assert.deepEqual(partial.comments, ["note"]);
+});
+
+test("updateCard rejects an empty title and invalid card files", () => {
+  run(["lists", "create", "todo"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  assert.throws(
+    () => updateCard(repo, "todo", "fix-bug.json", { title: "   " }),
+    /card title must not be empty/,
+  );
+  fs.writeFileSync(path.join(repo, "todo", "broken.json"), "{nope");
+  assert.throws(
+    () => updateCard(repo, "todo", "broken.json", { title: "x" }),
+    /invalid card file/,
+  );
 });
 
 test("duplicate card titles get unique filenames", () => {
