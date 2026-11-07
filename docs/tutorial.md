@@ -74,7 +74,7 @@ Each list is shown as a column containing its cards. Move between lists with `h`
 
 Hold `Shift` while pressing `h`/`l` or the left/right arrow keys to move the selected card to the adjacent list; the move is committed to git immediately. A card can only be moved between lists, not up or down within a list, so `Shift` with `j`/`k` or the up/down arrow keys does nothing.
 
-Press `space` to open the currently selected card in a modal showing its title, description, `created:`/`modified:` timestamps, any other metadata, and its comments. While the modal is open the other navigation keys are ignored; press `space` again to close it.
+Press `space` to open the currently selected card in a modal where its information can be edited: a `Title` field, a `Description` field, and a `Comments` field with one comment per line. The `created:`/`modified:` timestamps and any other metadata are shown read-only at the bottom of the modal. While the modal is open the board navigation keys are ignored (they type into the focused field instead). Use `Tab` and `Shift-Tab` to move between the fields, `Enter` to save the card and close the modal — the updated card file is committed to git immediately with an `Update card "..." in list "..."` message and its `modified:` timestamp is bumped — and `Ctrl-Q` to close the modal and discard any changes made in the fields.
 
 When the output is not a terminal (for example when piping), running `gitello` without arguments prints the usage instead.
 

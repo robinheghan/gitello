@@ -1,5 +1,14 @@
+import path from "node:path";
 import blessed from "@blessed/neo-blessed";
-import { byCreation, formatCard, moveCardFile, readCards } from "./cards.js";
+import {
+  byCreation,
+  formatComments,
+  formatMeta,
+  moveCardFile,
+  parseComments,
+  readCards,
+  updateCard,
+} from "./cards.js";
 import { commit, ensureRepo, listNames } from "./store.js";
 
 const QUIT_KEYS = new Set(["q", "escape", "C-c"]);
@@ -10,9 +19,12 @@ const MOVE_KEYS = {
   "S-left": "left",
   "S-right": "right",
 };
+const MODAL_KEYS = ["tab", "S-tab", "enter"];
 
 const HELP =
-  "{grey-fg}h/l or ←/→: lists · j/k or ↑/↓: cards · shift+h/l or shift+←/→: move card · space: view card · q/esc: quit{/grey-fg}";
+  "{grey-fg}h/l or ←/→: lists · j/k or ↑/↓: cards · shift+h/l or shift+←/→: move card · space: edit card · q/esc: quit{/grey-fg}";
+const MODAL_HELP =
+  "{grey-fg}tab/shift+tab: fields · enter: save & close · ctrl+q: discard · q/esc: quit{/grey-fg}";
 const EMPTY_HELP =
   "{grey-fg}No lists yet — create one with `gitello lists create <name>` · q: quit{/grey-fg}";
 
@@ -95,6 +107,40 @@ export function performMove(repo, model, move) {
   return card;
 }
 
+export function applyModalKey(key, focus, fieldCount) {
+  if (fieldCount < 1) {
+    return null;
+  }
+  switch (key) {
+    case "tab":
+      return { action: "focus", focus: (focus + 1) % fieldCount };
+    case "S-tab":
+      return { action: "focus", focus: (focus + fieldCount - 1) % fieldCount };
+    case "enter":
+      return { action: "save" };
+    case "C-q":
+      return { action: "discard" };
+    default:
+      return null;
+  }
+}
+
+export function performUpdate(repo, model, state, values) {
+  const column = model.lists[state.list];
+  const card = column?.cards[state.card];
+  if (!card) {
+    return null;
+  }
+  const updated = updateCard(repo, column.name, card.file, values);
+  commit(
+    repo,
+    path.join(column.name, card.file),
+    `Update card "${updated.title}" in list "${column.name}"`,
+  );
+  model.lists = buildModel(repo).lists;
+  return updated;
+}
+
 export function truncate(text, max) {
   if (max < 1) {
     return "";
@@ -129,6 +175,7 @@ export function launch(io = {}) {
     fullUnicode: true,
     extended: false,
     title: "gitello",
+    ignoreLocked: [...QUIT_KEYS, "C-q", ...MODAL_KEYS],
   });
 
   const help = blessed.box({
@@ -165,30 +212,160 @@ export function launch(io = {}) {
     height: "80%",
     border: { type: "line" },
     tags: false,
-    scrollable: true,
-    alwaysScroll: true,
-    mouse: true,
     hidden: true,
     style: { border: { fg: "cyan" } },
   });
 
+  const fieldStyle = {
+    border: { fg: "grey" },
+    focus: { border: { fg: "cyan" } },
+  };
+
+  const titleField = blessed.textbox({
+    parent: cardModal,
+    name: "title",
+    label: " Title ",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: 3,
+    keys: true,
+    inputOnFocus: true,
+    mouse: true,
+    border: { type: "line" },
+    style: fieldStyle,
+  });
+
+  const descriptionField = blessed.textarea({
+    parent: cardModal,
+    name: "description",
+    label: " Description ",
+    top: 3,
+    left: 0,
+    width: "100%",
+    height: "50%-4",
+    keys: true,
+    inputOnFocus: true,
+    mouse: true,
+    scrollable: true,
+    alwaysScroll: true,
+    border: { type: "line" },
+    style: fieldStyle,
+  });
+
+  const commentsField = blessed.textarea({
+    parent: cardModal,
+    name: "comments",
+    label: " Comments (one per line) ",
+    top: "50%-1",
+    left: 0,
+    width: "100%",
+    height: "50%-4",
+    keys: true,
+    inputOnFocus: true,
+    mouse: true,
+    scrollable: true,
+    alwaysScroll: true,
+    border: { type: "line" },
+    style: fieldStyle,
+  });
+
+  const metaLine = blessed.text({
+    parent: cardModal,
+    bottom: 0,
+    left: 0,
+    width: "100%",
+    height: 1,
+    tags: true,
+    style: { fg: "grey" },
+  });
+
+  const fields = [titleField, descriptionField, commentsField];
+
   let state = initialState();
   let modalOpen = false;
+  let focusIndex = 0;
 
-  function toggleCardModal() {
-    if (modalOpen) {
-      modalOpen = false;
-      cardModal.hide();
-      return;
-    }
+  for (const field of fields) {
+    field.on("focus", () => {
+      focusIndex = fields.indexOf(field);
+    });
+  }
+
+  function openCardModal() {
     const card = model.lists[state.list]?.cards[state.card];
     if (!card) {
       return;
     }
     modalOpen = true;
+    focusIndex = 0;
     cardModal.setLabel(` ${truncate(card.title, 60)} `);
-    cardModal.setContent(formatCard(card));
+    titleField.setValue(String(card.title ?? ""));
+    descriptionField.setValue(String(card.description ?? ""));
+    commentsField.setValue(formatComments(card.comments));
+    metaLine.setContent(`{grey-fg}${formatMeta(card)}{/grey-fg}`);
     cardModal.show();
+    fields[0].focus();
+    render();
+  }
+
+  function closeModal() {
+    if (!modalOpen) {
+      return;
+    }
+    modalOpen = false;
+    const focused = screen.focused;
+    if (fields.includes(focused)) {
+      if (focused._reading) {
+        focused.emit("keypress", "\x1b", { name: "escape" });
+      }
+      screen.focusPush(screen);
+    }
+    cardModal.hide();
+    render();
+  }
+
+  function saveModal() {
+    const column = model.lists[state.list];
+    const card = column?.cards[state.card];
+    if (!card) {
+      closeModal();
+      return;
+    }
+    const values = {
+      title: titleField.getValue(),
+      description: descriptionField.getValue(),
+      comments: parseComments(commentsField.getValue()),
+    };
+    if (!values.title.trim()) {
+      help.setContent(
+        "{red-fg}title must not be empty · enter: save & close · ctrl+q: discard{/red-fg}",
+      );
+      screen.render();
+      return;
+    }
+    performUpdate(repo, model, state, values);
+    closeModal();
+  }
+
+  function modalKey(key) {
+    const action = applyModalKey(key, focusIndex, fields.length);
+    if (!action) {
+      return;
+    }
+    const focused = screen.focused;
+    if (fields.includes(focused) && focused._reading) {
+      focused.emit("keypress", "\x1b", { name: "escape" });
+    }
+    if (action.action === "focus") {
+      focusIndex = action.focus;
+      fields[focusIndex].focus();
+      render();
+    } else if (action.action === "save") {
+      saveModal();
+    } else {
+      closeModal();
+    }
   }
 
   function layout() {
@@ -203,7 +380,9 @@ export function launch(io = {}) {
   }
 
   function render() {
-    help.setContent(columns.length === 0 ? EMPTY_HELP : HELP);
+    help.setContent(
+      columns.length === 0 ? EMPTY_HELP : modalOpen ? MODAL_HELP : HELP,
+    );
     if (columns.length === 0) {
       screen.render();
       return;
@@ -242,13 +421,30 @@ export function launch(io = {}) {
       resolve(0);
     }
     screen.key([...QUIT_KEYS], quit);
+    screen.key(["C-q"], () => {
+      if (modalOpen) {
+        closeModal();
+        return;
+      }
+      quit();
+    });
     screen.key(["space"], () => {
+      if (modalOpen) {
+        return;
+      }
       const result = applyKey(model, state, "space");
       if (result.toggleCard) {
-        toggleCardModal();
+        openCardModal();
       }
-      render();
     });
+    for (const key of MODAL_KEYS) {
+      screen.key([key], () => {
+        if (!modalOpen) {
+          return;
+        }
+        modalKey(key);
+      });
+    }
     for (const key of NAV_KEYS) {
       screen.key([key], () => {
         if (modalOpen) {
