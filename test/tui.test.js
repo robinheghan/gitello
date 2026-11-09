@@ -6,9 +6,11 @@ import { afterEach, beforeEach, test } from "node:test";
 import { main } from "../src/cli.js";
 import {
   applyKey,
+  applyModalKey,
   buildModel,
   initialState,
   performMove,
+  performUpdate,
   renderColumn,
   truncate,
 } from "../src/tui.js";
@@ -197,6 +199,64 @@ test("space toggles the card modal without changing the selection", () => {
   assert.deepEqual(result.state, state);
   assert.equal(applyKey(model, state, "x").toggleCard, undefined);
   assert.equal(applyKey(model, state, "j").toggleCard, undefined);
+});
+
+test("tab and shift+tab cycle through the modal fields", () => {
+  assert.deepEqual(applyModalKey("tab", 0, 3), { action: "focus", focus: 1 });
+  assert.deepEqual(applyModalKey("tab", 1, 3), { action: "focus", focus: 2 });
+  assert.deepEqual(applyModalKey("tab", 2, 3), { action: "focus", focus: 0 });
+  assert.deepEqual(applyModalKey("S-tab", 0, 3), { action: "focus", focus: 2 });
+  assert.deepEqual(applyModalKey("S-tab", 1, 3), { action: "focus", focus: 0 });
+  assert.deepEqual(applyModalKey("S-tab", 2, 3), { action: "focus", focus: 1 });
+  assert.equal(applyModalKey("tab", 0, 0), null);
+});
+
+test("enter saves and ctrl+q discards in the modal; other keys are ignored", () => {
+  assert.deepEqual(applyModalKey("enter", 1, 3), { action: "save" });
+  assert.deepEqual(applyModalKey("C-q", 1, 3), { action: "discard" });
+  assert.equal(applyModalKey("space", 1, 3), null);
+  assert.equal(applyModalKey("x", 1, 3), null);
+});
+
+test("performUpdate writes the card, commits, and rebuilds the model", () => {
+  run(["lists", "create", "done"]);
+  run(["lists", "create", "todo"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  run(["cards", "todo", "create", "Write docs"]);
+  const built = buildModel(repo);
+  const updated = performUpdate(
+    repo,
+    built,
+    { list: 1, card: 0 },
+    {
+      title: "Fix the bug",
+      description: "steps",
+      comments: ["looked at it"],
+    },
+  );
+  assert.equal(updated.title, "Fix the bug");
+  const stored = JSON.parse(
+    fs.readFileSync(path.join(repo, "todo", "fix-bug.json"), "utf8"),
+  );
+  assert.equal(stored.title, "Fix the bug");
+  assert.equal(stored.description, "steps");
+  assert.deepEqual(stored.comments, ["looked at it"]);
+  assert.deepEqual(
+    built.lists.map((list) => [
+      list.name,
+      list.cards.map((card) => card.title),
+    ]),
+    [
+      ["done", []],
+      ["todo", ["Fix the bug", "Write docs"]],
+    ],
+  );
+  const log = run(["git", "log", "--format=%s"]);
+  assert.ok(log.out.includes('Update card "Fix the bug" in list "todo"'));
+  assert.equal(
+    performUpdate(repo, built, { list: 0, card: 5 }, { title: "x" }),
+    null,
+  );
 });
 
 test("renderColumn highlights only the selected card of the active list", () => {
