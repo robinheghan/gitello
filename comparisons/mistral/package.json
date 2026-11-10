@@ -1,0 +1,24 @@
+{
+  "name": "gitello",
+  "version": "0.1.0",
+  "description": "A small kanban-style tool: lists containing cards, stored as plain files inside a dedicated git repository, driven by a CLI and an interactive TUI.",
+  "type": "module",
+  "bin": {
+    "gitello": "bin/gitello.js"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "packageManager": "pnpm@10.34.6",
+  "scripts": {
+    "check": "prettier --check . && node --test",
+    "format": "prettier --write ."
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@blessed/neo-blessed": "^1.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  }
+}
