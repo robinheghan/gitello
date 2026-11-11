@@ -1,0 +1,56 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@blessed/neo-blessed':
+        specifier: ^1.0.0
+        version: 1.0.0
+    devDependencies:
+      prettier:
+        specifier: ^3.6.2
+        version: 3.10.0
+
+packages:
+
+  '@blessed/neo-blessed@1.0.0':
+    resolution: {integrity: sha512-RdaOrmvUBCJwRPXSndJgCOQDUxIfwV3+17mhjNHemyYEsZoS6gSdnm7NyGVcnNxOY63ohAAlyw4gOVhKujaWhA==}
+    engines: {node: '>= 8.0.0'}
+    hasBin: true
+
+  nan@2.30.0:
+    resolution: {integrity: sha512-P5mokDkSvCGBz6mZDD/2l+w9QoICRXdCyZ9ONGmTePr40oihJg3Kpn0YU3twKd6PJnwSlLBWNQeOT6yWEV2c4A==}
+
+  node-pty@0.9.0:
+    resolution: {integrity: sha512-MBnCQl83FTYOu7B4xWw10AW77AAh7ThCE1VXEv+JeWj8mSpGo+0bwgsV+b23ljBFwEM9OmsOv3kM27iUPPm84g==}
+
+  prettier@3.10.0:
+    resolution: {integrity: sha512-mBi4765LgjO1PFjlEs7pUeK0nb1bw71c+N4/ItfeUWNdY5cV2pRKaFpbbFRYmDJMO+5ZwzGxHRqHxFZna7iv5w==}
+    engines: {node: '>=14'}
+    hasBin: true
+
+  term.js@0.0.7:
+    resolution: {integrity: sha512-c65+7Z/51TDl/owjT2BrPHhMtJu5MjcvPWTC2oAV/ybzuwUCuj5/OQ08urfEHkQpfphyXs/zZRCjZfnSC3bntA==}
+    engines: {node: '>= 0.8.0'}
+
+snapshots:
+
+  '@blessed/neo-blessed@1.0.0':
+    dependencies:
+      node-pty: 0.9.0
+      term.js: 0.0.7
+
+  nan@2.30.0: {}
+
+  node-pty@0.9.0:
+    dependencies:
+      nan: 2.30.0
+
+  prettier@3.10.0: {}
+
+  term.js@0.0.7: {}
