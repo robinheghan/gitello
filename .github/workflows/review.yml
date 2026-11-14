@@ -25,6 +25,7 @@ jobs:
         run: gh pr edit "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --remove-label ai-reviewed || true
 
   review-mistral:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     needs:
       - remove-ai-reviewed-label
     runs-on: ubuntu-latest
@@ -45,6 +46,7 @@ jobs:
         run: node scripts/ai-review.mjs "${{ github.event.pull_request.number }}"
 
   review-glm:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     needs:
       - remove-ai-reviewed-label
     runs-on: ubuntu-latest
@@ -65,6 +67,7 @@ jobs:
         run: node scripts/ai-review.mjs "${{ github.event.pull_request.number }}"
 
   label-ai-reviewed:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     needs:
       - review-mistral
       - review-glm
