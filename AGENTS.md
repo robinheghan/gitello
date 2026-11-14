@@ -24,3 +24,7 @@
 
 - `docs/tutorial.md` describes how to use the program, with examples. It is referenced from `README.md`.
 - Update `docs/tutorial.md` whenever the user interface changes, so it stays in sync with the actual user interface.
+
+## Experiments
+
+- The `comparisons/` folder is strictly an experiment. It can be ignored unless a prompt explicitly says to work in it.
