@@ -94,6 +94,7 @@ an error telling the user to quote multi-word values is printed):
   The `other:` line (a JSON object of any metadata beyond the known fields) is only
   printed when such extra metadata exists. Comments are printed one per line (strings
   as-is, objects as JSON).
+
 - `gitello git <args...>` — proxy to git in the data repo (see §2).
 
 Behavior:
@@ -137,7 +138,7 @@ Behavior:
   `extended: false` to `blessed.screen()`: modern terminfo entries contain an extended
   `Setulc` capability whose parameterized string makes neo-blessed's terminfo compiler
   emit invalid JS and print an `Error on <term>.Setulc:` dump on startup; `extended:
-  false` skips the extended section entirely, and gitello does not use extended
+false` skips the extended section entirely, and gitello does not use extended
   capabilities, so nothing is lost.
 - Structure: keep navigation/rendering logic pure and unit-testable without a TTY
   (`buildModel`, `initialState`, `applyKey`, `renderColumn` in `src/tui.js`); a separate

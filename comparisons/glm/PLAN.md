@@ -56,6 +56,7 @@ All commands:
   ```
 
   Unknown titles fail with `card not found: <title>`.
+
 - `gitello git <args...>` — proxy for running git commands **in the gitello repo** (pull/push/manual fixes); pass through the exit code.
 
 Errors (unknown list/card, duplicate list, invalid names, unquoted titles, wrong argument counts) go to **stderr** with exit code 1; unknown commands print usage.
@@ -69,7 +70,7 @@ Errors (unknown list/card, duplicate list, invalid names, unquoted titles, wrong
 
 ## 5. TUI board
 
-Use **`@blessed/neo-blessed`** (the maintained scoped package, `^1.0.0`) as the TUI dependency. When creating the screen, pass `extended: false` — this skips the terminfo *extended* section (whose `Setulc` capability makes neo-blessed's terminfo compiler emit invalid JS and print `Error on xterm-256color.Setulc:` on startup/exit). gitello doesn't use extended capabilities, so nothing is lost. This is **not** the unscoped `neo-blessed` package, which is capped at 0.2.0 on npm.
+Use **`@blessed/neo-blessed`** (the maintained scoped package, `^1.0.0`) as the TUI dependency. When creating the screen, pass `extended: false` — this skips the terminfo _extended_ section (whose `Setulc` capability makes neo-blessed's terminfo compiler emit invalid JS and print `Error on xterm-256color.Setulc:` on startup/exit). gitello doesn't use extended capabilities, so nothing is lost. This is **not** the unscoped `neo-blessed` package, which is capped at 0.2.0 on npm.
 
 ### Board
 

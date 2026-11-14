@@ -205,8 +205,8 @@ export function launch({ repo = null } = {}) {
     if (process.env.GITELLO_DEBUG) {
       program.on('keypress', (ch, key) =>
         console.error(
-          `[prog ${JSON.stringify(key?.full ?? ch)} focused=${screen.focused?.type} grab=${screen.grabKeys}]`
-        )
+          `[prog ${JSON.stringify(key?.full ?? ch)} focused=${screen.focused?.type} grab=${screen.grabKeys}]`,
+        ),
       );
     }
 
@@ -310,8 +310,8 @@ export function launch({ repo = null } = {}) {
       if (process.env.GITELLO_DEBUG) {
         field.on('keypress', (ch, key) =>
           console.error(
-            `[field ${key?.full ?? ch} listener=${!!field.__listener} reading=${field._reading} value=${JSON.stringify(field.getValue())}]`
-          )
+            `[field ${key?.full ?? ch} listener=${!!field.__listener} reading=${field._reading} value=${JSON.stringify(field.getValue())}]`,
+          ),
         );
       }
       modal.reading = field;
@@ -482,8 +482,8 @@ export function launch({ repo = null } = {}) {
           `[key ${full}] modal=${!!modal} reading=${
             modal?.reading ? `${modal.focus}:${modal.reading._reading}` : '-'
           } values=${JSON.stringify(
-            modal ? modal.fields.map((f) => f.getValue()) : []
-          )}`
+            modal ? modal.fields.map((f) => f.getValue()) : [],
+          )}`,
         );
       }
       if (full === 'C-c') {
