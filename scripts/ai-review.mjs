@@ -91,7 +91,13 @@ if (!response.ok) {
   process.exit(1);
 }
 
-const review = data.choices?.[0]?.message?.content;
+let review = data.choices?.[0]?.message?.content;
+if (Array.isArray(review)) {
+  review = review
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
+    .join("\n")
+    .trim();
+}
 if (!review) {
   console.error("Review response contained no content:", JSON.stringify(data));
   process.exit(1);
