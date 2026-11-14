@@ -179,14 +179,15 @@ test("performMove moves the card file, commits, and rebuilds the model", () => {
 
 test("performMove returns null when the card does not exist", () => {
   run(["lists", "create", "todo"]);
+  run(["lists", "create", "done"]);
   run(["cards", "todo", "create", "Fix bug"]);
   const built = buildModel(repo);
   assert.equal(
-    performMove(repo, built, { from: "todo", to: "todo", card: 9 }),
+    performMove(repo, built, { from: "todo", to: "done", card: 9 }),
     null,
   );
   assert.equal(
-    performMove(repo, built, { from: "nope", to: "todo", card: 0 }),
+    performMove(repo, built, { from: "nope", to: "done", card: 0 }),
     null,
   );
   assert.ok(fs.existsSync(path.join(repo, "todo", "fix-bug.json")));

@@ -329,11 +329,12 @@ test("byRecency breaks timestamp ties by createdAt, then list, then file", () =>
     { title: "a", updatedAt: "t", createdAt: "c1", list: "b", file: "z.json" },
     { title: "b", updatedAt: "t", createdAt: "c2", list: "a", file: "y.json" },
     { title: "c", updatedAt: "t", createdAt: "c2", list: "a", file: "x.json" },
+    { title: "p", updatedAt: "t", createdAt: "c2", list: "b", file: "a.json" },
     { title: "d", updatedAt: "t2" },
   ];
   assert.deepEqual(
     byRecency(cards).map((card) => card.title),
-    ["d", "c", "b", "a"],
+    ["d", "c", "b", "p", "a"],
   );
 });
 
@@ -532,13 +533,14 @@ test("malformed subcommands print usage and fail", () => {
 test("git proxies git command failures with their exit code and stderr", () => {
   run(["lists"]);
   const result = run(["git", "log"]);
-  assert.notEqual(result.code, 0);
+  assert.equal(result.code, 128);
   assert.match(result.err, /fatal:/);
 });
 
 test("a failing git commit is reported as a gitello error", () => {
   run(["lists", "create", "todo"]);
   assert.equal(run(["git", "config", "commit.gpgsign", "true"]).code, 0);
+  assert.equal(run(["git", "config", "gpg.program", "/bin/false"]).code, 0);
   const result = run(["lists", "create", "done"]);
   assert.equal(result.code, 1);
   assert.match(result.err, /git commit .* failed/);
