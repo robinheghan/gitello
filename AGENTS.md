@@ -6,7 +6,7 @@
 - Pull requests must be opened ready for review, never as drafts.
 - Each PR description must include the prompt (the user request) that triggered the change, so the PR history shows why each change was made.
 - When a new prompt causes changes to an existing PR, add that prompt as a comment on the PR.
-- After opening a PR, wait for its checks: poll `gh pr checks <number>` until the `ci` and `review` workflows finish, read the `## AI review` comment posted by `github-actions[bot]`, and if CI fails or the review flags issues, push fixes to the same PR branch and repeat until all checks pass.
+- After opening a PR, wait for its checks: poll `gh pr checks <number>` until the `ci` and `review` workflows finish and the PR carries the `ai-reviewed` label (the `review` workflow adds it only after both the Mistral and the GLM 5.3 reviews are posted). Only then read the two `## AI review (<model>)` comments posted by `github-actions[bot]`, and if CI fails or either review flags issues, push fixes to the same PR branch and repeat until all checks pass.
 
 ## Toolchain and package management
 

@@ -104,6 +104,6 @@ gh(
   "--repo",
   repo,
   "--body",
-  `## AI review\n\n${review}`,
+  `## AI review (${model})\n\n${review}`,
 );
-console.log(`Posted AI review on PR #${prNumber}`);
+console.log(`Posted AI review from ${model} on PR #${prNumber}`);
