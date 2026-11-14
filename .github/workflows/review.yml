@@ -4,6 +4,7 @@ on:
   pull_request:
     types:
       - opened
+      - synchronize
 
 permissions:
   contents: read
@@ -44,7 +45,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-          REVIEW_MODEL: ${{ vars.GLM_REVIEW_MODEL || 'glm-5.3' }}
+          REVIEW_MODEL: ${{ vars.GLM_REVIEW_MODEL || 'zai-glm-5-3' }}
         run: node scripts/ai-review.mjs "${{ github.event.pull_request.number }}"
 
   label-ai-reviewed:
