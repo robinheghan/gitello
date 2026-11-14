@@ -4,48 +4,34 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { main } from "../src/cli.js";
 import {
+  byRecency,
   formatCard,
   formatComments,
   formatMeta,
   parseComments,
+  slugify,
   updateCard,
 } from "../src/cards.js";
+import { repoPath } from "../src/store.js";
+import {
+  cleanupRepo,
+  freshRepo,
+  gitLogSubjects,
+  runCli as run,
+  sleep,
+} from "./helpers.js";
 
 let dir;
 let repo;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "gitello-"));
-  repo = path.join(dir, "repo");
-  process.env.GITELLO_PATH = repo;
+  ({ dir, repo } = freshRepo());
 });
 
 afterEach(() => {
-  delete process.env.GITELLO_PATH;
-  fs.rmSync(dir, { recursive: true, force: true });
+  cleanupRepo(dir);
 });
-
-function run(args) {
-  const out = [];
-  const err = [];
-  const code = main(args, {
-    stdout: { write: (chunk) => out.push(chunk) },
-    stderr: { write: (chunk) => err.push(chunk) },
-  });
-  return { code, out: out.join(""), err: err.join("") };
-}
-
-function gitLogSubjects() {
-  const result = spawnSync("git", ["-C", repo, "log", "--format=%s"], {
-    encoding: "utf8",
-  });
-  return result.stdout.trim().split("\n").filter(Boolean);
-}
-
-const sleep = (ms) =>
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 test("the first command creates an empty git repo", () => {
   const result = run(["lists"]);
@@ -61,7 +47,7 @@ test("the first command creates an empty git repo", () => {
 test("lists create adds a .gitkeep and commits, lists prints names alphabetically", () => {
   assert.equal(run(["lists", "create", "todo"]).code, 0);
   assert.ok(fs.existsSync(path.join(repo, "todo", ".gitkeep")));
-  assert.ok(gitLogSubjects().includes('Create list "todo"'));
+  assert.ok(gitLogSubjects(repo).includes('Create list "todo"'));
   run(["lists", "create", "alpha"]);
   const result = run(["lists"]);
   assert.equal(result.out, "alpha\ntodo\n");
@@ -83,6 +69,14 @@ test("lists create rejects duplicates and invalid names", () => {
   }
 });
 
+test("lists create fails when the name is taken by a plain file", () => {
+  run(["lists", "create", "todo"]);
+  fs.writeFileSync(path.join(repo, "blocked"), "");
+  const result = run(["lists", "create", "blocked"]);
+  assert.equal(result.code, 1);
+  assert.match(result.err, /cannot create list: blocked/);
+});
+
 test("lists remove deletes the folder and commits", () => {
   run(["lists", "create", "todo"]);
   run(["cards", "todo", "create", "Fix bug"]);
@@ -90,7 +84,7 @@ test("lists remove deletes the folder and commits", () => {
   assert.equal(result.code, 0);
   assert.equal(result.out, 'Removed list "todo"\n');
   assert.ok(!fs.existsSync(path.join(repo, "todo")));
-  assert.ok(gitLogSubjects().includes('Remove list "todo"'));
+  assert.ok(gitLogSubjects(repo).includes('Remove list "todo"'));
   assert.equal(run(["lists"]).out, "");
   const missing = run(["lists", "remove", "todo"]);
   assert.equal(missing.code, 1);
@@ -116,7 +110,7 @@ test("cards create stores a card json and commits", () => {
   assert.match(card.updatedAt, iso);
   assert.equal(card.createdAt, card.updatedAt);
   assert.ok(
-    gitLogSubjects().includes(
+    gitLogSubjects(repo).includes(
       'Create card "Fix the Login Bug!" in list "todo"',
     ),
   );
@@ -164,11 +158,37 @@ test("cards create requires a single quoted title", () => {
   assert.match(result.err, /quote multi-word values/);
 });
 
+test("cards create rejects an empty title", () => {
+  run(["lists", "create", "todo"]);
+  const result = run(["cards", "todo", "create", ""]);
+  assert.equal(result.code, 1);
+  assert.match(result.err, /card title must not be empty/);
+});
+
 test("cards commands fail when the list does not exist", () => {
-  assert.equal(run(["cards", "nope"]).code, 1);
-  assert.match(run(["cards", "nope"]).err, /list not found/);
-  assert.match(run(["cards", "nope", "create", "X"]).err, /list not found/);
-  assert.match(run(["cards", "nope", "remove", "X"]).err, /list not found/);
+  for (const args of [
+    ["cards", "nope"],
+    ["cards", "nope", "create", "X"],
+    ["cards", "nope", "remove", "X"],
+  ]) {
+    const result = run(args);
+    assert.equal(result.code, 1, JSON.stringify(args));
+    assert.match(result.err, /list not found/, JSON.stringify(args));
+  }
+});
+
+test("a broken card file fails every card read with invalid card file", () => {
+  run(["lists", "create", "todo"]);
+  fs.writeFileSync(path.join(repo, "todo", "broken.json"), "{nope");
+  for (const args of [
+    ["cards", "todo"],
+    ["cards"],
+    ["cards", "show", "anything"],
+  ]) {
+    const result = run(args);
+    assert.equal(result.code, 1, JSON.stringify(args));
+    assert.match(result.err, /invalid card file/, JSON.stringify(args));
+  }
 });
 
 test("cards show prints title, description, timestamps, other metadata, and comments", () => {
@@ -291,6 +311,30 @@ test("formatComments and parseComments round-trip string and object comments", (
     { n: 2 },
     "not json {",
   ]);
+  assert.deepEqual(parseComments("{nope\n[1,"), ["{nope", "[1,"]);
+});
+
+test("slugify turns titles into file-safe slugs", () => {
+  assert.equal(slugify("Fix the Login Bug!"), "fix-the-login-bug");
+  assert.equal(slugify("Café crème"), "cafe-creme");
+  assert.equal(slugify("Äpfel & Birnen"), "apfel-birnen");
+  assert.equal(slugify("!!!"), "card");
+  assert.equal(slugify("---"), "card");
+  assert.equal(slugify("a".repeat(80)), "a".repeat(60));
+  assert.equal(slugify(`${"a".repeat(59)}-${"b".repeat(10)}`), "a".repeat(59));
+});
+
+test("byRecency breaks timestamp ties by createdAt, then list, then file", () => {
+  const cards = [
+    { title: "a", updatedAt: "t", createdAt: "c1", list: "b", file: "z.json" },
+    { title: "b", updatedAt: "t", createdAt: "c2", list: "a", file: "y.json" },
+    { title: "c", updatedAt: "t", createdAt: "c2", list: "a", file: "x.json" },
+    { title: "d", updatedAt: "t2" },
+  ];
+  assert.deepEqual(
+    byRecency(cards).map((card) => card.title),
+    ["d", "c", "b", "a"],
+  );
 });
 
 test("updateCard rewrites title, description, and comments and bumps updatedAt", () => {
@@ -352,12 +396,27 @@ test("cards remove deletes the card and commits", () => {
   assert.equal(result.out, 'Removed card "Fix bug" from list "todo"\n');
   assert.ok(!fs.existsSync(path.join(repo, "todo", "fix-bug.json")));
   assert.ok(
-    gitLogSubjects().includes('Remove card "Fix bug" from list "todo"'),
+    gitLogSubjects(repo).includes('Remove card "Fix bug" from list "todo"'),
   );
   assert.equal(run(["cards", "todo"]).out, "");
   const missing = run(["cards", "todo", "remove", "Fix bug"]);
   assert.equal(missing.code, 1);
   assert.match(missing.err, /card not found/);
+});
+
+test("cards remove deletes every card with a duplicate title", () => {
+  run(["lists", "create", "todo"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  const result = run(["cards", "todo", "remove", "Fix bug"]);
+  assert.equal(result.code, 0);
+  assert.equal(
+    result.out,
+    'Removed card "Fix bug" from list "todo"\n'.repeat(2),
+  );
+  assert.ok(!fs.existsSync(path.join(repo, "todo", "fix-bug.json")));
+  assert.ok(!fs.existsSync(path.join(repo, "todo", "fix-bug-2.json")));
+  assert.equal(run(["cards", "todo"]).out, "");
 });
 
 test("cards move moves the card to another list and commits", () => {
@@ -378,7 +437,7 @@ test("cards move moves the card to another list and commits", () => {
   assert.equal(run(["cards", "todo"]).out, "");
   assert.equal(run(["cards", "done"]).out, "Fix bug\n");
   assert.ok(
-    gitLogSubjects().includes(
+    gitLogSubjects(repo).includes(
       'Move card "Fix bug" from list "todo" to list "done"',
     ),
   );
@@ -453,4 +512,39 @@ test("unknown or missing commands print usage and fail", () => {
   const empty = run([]);
   assert.equal(empty.code, 1);
   assert.match(empty.err, /Usage:/);
+});
+
+test("malformed subcommands print usage and fail", () => {
+  for (const args of [
+    ["lists", "create"],
+    ["lists", "create", "a", "b"],
+    ["lists", "remove"],
+    ["lists", "bogus"],
+    ["cards", "--all", "extra"],
+    ["cards", "todo", "bogus"],
+  ]) {
+    const result = run(args);
+    assert.equal(result.code, 1, JSON.stringify(args));
+    assert.match(result.err, /Usage:/, JSON.stringify(args));
+  }
+});
+
+test("git proxies git command failures with their exit code and stderr", () => {
+  run(["lists"]);
+  const result = run(["git", "log"]);
+  assert.notEqual(result.code, 0);
+  assert.match(result.err, /fatal:/);
+});
+
+test("a failing git commit is reported as a gitello error", () => {
+  run(["lists", "create", "todo"]);
+  assert.equal(run(["git", "config", "commit.gpgsign", "true"]).code, 0);
+  const result = run(["lists", "create", "done"]);
+  assert.equal(result.code, 1);
+  assert.match(result.err, /git commit .* failed/);
+});
+
+test("repoPath defaults to ~/.gitello without GITELLO_PATH", () => {
+  delete process.env.GITELLO_PATH;
+  assert.equal(repoPath(), path.join(os.homedir(), ".gitello"));
 });

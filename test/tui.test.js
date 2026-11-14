@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { main } from "../src/cli.js";
 import {
   applyKey,
   applyModalKey,
@@ -14,30 +12,18 @@ import {
   renderColumn,
   truncate,
 } from "../src/tui.js";
+import { cleanupRepo, freshRepo, runCli as run } from "./helpers.js";
 
 let dir;
 let repo;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "gitello-tui-"));
-  repo = path.join(dir, "repo");
-  process.env.GITELLO_PATH = repo;
+  ({ dir, repo } = freshRepo());
 });
 
 afterEach(() => {
-  delete process.env.GITELLO_PATH;
-  fs.rmSync(dir, { recursive: true, force: true });
+  cleanupRepo(dir);
 });
-
-function run(args) {
-  const out = [];
-  const err = [];
-  const code = main(args, {
-    stdout: { write: (chunk) => out.push(chunk) },
-    stderr: { write: (chunk) => err.push(chunk) },
-  });
-  return { code, out: out.join(""), err: err.join("") };
-}
 
 const model = {
   lists: [
@@ -189,6 +175,21 @@ test("performMove moves the card file, commits, and rebuilds the model", () => {
   assert.ok(
     log.out.includes('Move card "Fix bug" from list "todo" to list "done"'),
   );
+});
+
+test("performMove returns null when the card does not exist", () => {
+  run(["lists", "create", "todo"]);
+  run(["cards", "todo", "create", "Fix bug"]);
+  const built = buildModel(repo);
+  assert.equal(
+    performMove(repo, built, { from: "todo", to: "todo", card: 9 }),
+    null,
+  );
+  assert.equal(
+    performMove(repo, built, { from: "nope", to: "todo", card: 0 }),
+    null,
+  );
+  assert.ok(fs.existsSync(path.join(repo, "todo", "fix-bug.json")));
 });
 
 test("space toggles the card modal without changing the selection", () => {
