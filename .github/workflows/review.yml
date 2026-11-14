@@ -6,13 +6,27 @@ on:
       - opened
       - synchronize
 
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   issues: write
   pull-requests: write
 
 jobs:
+  remove-ai-reviewed-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove stale ai-reviewed label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --remove-label ai-reviewed || true
+
   review-mistral:
+    needs:
+      - remove-ai-reviewed-label
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -31,6 +45,8 @@ jobs:
         run: node scripts/ai-review.mjs "${{ github.event.pull_request.number }}"
 
   review-glm:
+    needs:
+      - remove-ai-reviewed-label
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -58,7 +74,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if ! gh label list --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name' | grep -qx "ai-reviewed"; then
+          if ! gh label list --repo "$GITHUB_REPOSITORY" --limit 200 --json name --jq '.[].name' | grep -qx "ai-reviewed"; then
             gh label create ai-reviewed --repo "$GITHUB_REPOSITORY" --description "Both AI reviews (Mistral and GLM) are posted" --color "5319e7"
           fi
 
